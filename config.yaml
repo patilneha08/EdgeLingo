@@ -1,0 +1,10 @@
+sample_rate: 16000
+chunk_duration: 4
+channels: 1
+
+max_workers: 4
+silence_threshold: 0.001
+queue_timeout: 1.0
+
+encoder_path: "models/WhisperEncoder.onnx"
+decoder_path: "models/WhisperDecoder.onnx"
