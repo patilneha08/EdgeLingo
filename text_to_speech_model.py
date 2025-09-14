@@ -1,11 +1,24 @@
 from TTS.api import TTS
 
-# English
-tts_en = TTS("tts_models/en/ljspeech/tacotron2-DDC")
-tts_en.tts_to_file(text="This is just a random text. Much longer than the last one but a POC", file_path="en_coqui.wav")
+def run_tts(text, targetLanguage):
 
-# Spanish
-tts_es = TTS("tts_models/es/css10/vits")
-tts_es.tts_to_file(text="Hola, ¿cómo estás hoy?", file_path="es_coqui.wav")
+    # English
+    if targetLanguage == "E":
+        tts_en = TTS("tts_models/en/ljspeech/tacotron2-DDC")
+        tts_en.tts_to_file(
+            text=text,
+            file_path="en_coqui.wav"
+        )
+        print("Saved the english speech")
 
-print("Saved en_coqui.wav and es_coqui.wav")
+    # Spanish
+    else:
+        tts_es = TTS("tts_models/es/css10/vits")
+        tts_es.tts_to_file(
+            text=text,
+            file_path="es_coqui.wav"
+        )
+        print("Saved the spanish speech")
+
+# if __name__ == "__main__":
+#     run_tts()
