@@ -52,3 +52,9 @@ def transcribe(wav_bytes: bytes, src_lang: str = "en") -> str:
     # Their standalone runner supports chunking/streaming; we call once per utterance.
     text = _model.transcribe(audio, language=src_lang)  # returns string
     return text.strip()
+
+# asr.py (add this helper)
+def transcribe_file(path: str, src_lang: str = "en") -> str:
+    with open(path, "rb") as f:
+        wav_bytes = f.read()
+    return transcribe(wav_bytes, src_lang=src_lang)

@@ -8,6 +8,26 @@ from typing import Optional, List, Tuple, Iterable, Generator
 import numpy as np
 import pyaudio
 
+import sounddevice as sd
+import numpy as np
+
+def list_devices():
+    return sd.query_devices()
+
+# audio_io.py replacement for record(...) using sounddevice
+import sounddevice as sd
+import soundfile as sf
+import io
+
+def record(seconds: int, device_index: Optional[int] = None) -> bytes:
+    sd.default.samplerate = RATE
+    sd.default.channels = CHANNELS
+    data = sd.rec(int(seconds * RATE), dtype='int16', device=device_index)
+    sd.wait()
+    buf = io.BytesIO()
+    sf.write(buf, data, RATE, format='WAV', subtype='PCM_16')
+    return buf.getvalue()
+
 RATE = 16000
 CHANNELS = 1
 SAMPLE_WIDTH = 2  # bytes for PCM16
