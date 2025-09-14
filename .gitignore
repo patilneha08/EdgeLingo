@@ -1,1 +1,7 @@
 *.wav
+.venv/
+__pycache__/
+env_tts/
+models/
+third_party/
+third_party/aihub_whisper/audio_utils.py
