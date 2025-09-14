@@ -5,3 +5,9 @@ env_tts/
 models/
 third_party/
 third_party/aihub_whisper/audio_utils.py
+.python-version
+.venv310/
+.venv311/
+piper/
+run.log
+venv/
