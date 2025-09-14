@@ -83,29 +83,66 @@ class PiperTTS:
 # --- Translator placeholder (plug your ONNX MT here) ---
 class Translator:
     """
-    Replace this stub with your ONNX-based MT.
-    Expected interface: translate(text, src_lang, tgt_lang) -> str
+    Offline translator powered by Argos Translate.
+    Expects Argos .argosmodel files in cfg['models_dir'] (default: third_party/models/argos).
+    Filenames used: en_es.argosmodel and es_en.argosmodel
     """
-    def __init__(self, cfg: dict):
-        self.cfg = cfg
-        self.loaded = False
-        self._load()
+    def __init__(self, cfg):
+        import argostranslate.package, argostranslate.translate
+        self.argos = argostranslate.translate
 
-    def _load(self):
-        # TODO: Load your ONNX MT model(s) here using onnxruntime.InferenceSession
-        #       and any tokenizer you use (e.g., SentencePiece).
+        models_dir = cfg.get("models_dir", "third_party/models/argos")
+        os.makedirs(models_dir, exist_ok=True)
+
+        # Install local models if not yet installed
+        installed = {p for p in argostranslate.package.get_installed_packages()}
+        for fname in ["en_es.argosmodel", "es_en.argosmodel"]:
+            path = os.path.join(models_dir, fname)
+            if not os.path.exists(path):
+                raise FileNotFoundError(
+                    f"Argos model missing: {path}\n"
+                    f"→ Put the .argosmodel files in {models_dir} (no internet needed at runtime)."
+                )
+            pkg = argostranslate.package.Package(path)
+            if pkg not in installed:
+                argostranslate.package.install_from_path(path)
+
         self.loaded = True
 
-    def translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
-        # TODO: Run encoder-decoder (or decoder-only) inference.
-        # For now, echo back with tag to prove the pipe is working.
-        return f"[{src_lang}->{tgt_lang}] {text}"
+    def translate(self, text, src_lang, tgt_lang):
+        # src_lang/tgt_lang should be ISO codes like "en" or "es" (which you already pass)
+        return self.argos.translate(text, src_lang, tgt_lang)
 
 # --- Utility: load config ---
 def load_config(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     return cfg or {}
+
+def _must_exist(path, label):
+    if not path or not os.path.exists(path):
+        raise FileNotFoundError(f"{label} missing: {path}")
+
+# After loading cfg:
+asr_model = cfg.get("asr", {}).get("model_path")
+mt_model  = cfg.get("mt", {}).get("model_path")       # if using ONNX MT
+mt_token  = cfg.get("mt", {}).get("tokenizer_path")
+tts_voice = cfg.get("tts", {}).get("voice_path")
+
+for p, name in [(asr_model, "ASR model"),
+                (tts_voice, "TTS voice model")]:
+    _must_exist(p, name)
+
+# Only enforce MT files if your Translator uses them:
+if mt_model: _must_exist(mt_model, "MT model")
+if mt_token: _must_exist(mt_token, "MT tokenizer")
+
+
+# parse_args()
+p.add_argument("--ep", choices=["auto","cpu","dml"], default="auto",
+               help="Execution provider preference")
+
+
 
 # --- Wire up the pipeline ---
 def run_pipeline(args):
@@ -125,8 +162,26 @@ def run_pipeline(args):
     src_lang = args.src_lang or cfg.get("lang", {}).get("source", "es")
     tgt_lang = args.tgt_lang or cfg.get("lang", {}).get("target", "en")
 
+    # in run_pipeline(), after you know tgt_lang:
+    tts_map = {
+        "en": "third_party/models/piper/en_US-amy-medium.onnx",
+        "es": "third_party/models/piper/es_ES-carlfm-medium.onnx",
+    }
+    voice_path = tts_map.get(tgt_lang, tts_map["en"])
     # 2) Show available EPs
     providers = ort_providers()
+    # inside run_pipeline(), after providers = ort_providers()
+    pref = args.ep
+    chosen = None
+    if pref == "dml" and "DmlExecutionProvider" in providers:
+        chosen = "DmlExecutionProvider"
+    elif pref == "cpu" and "CPUExecutionProvider" in providers:
+        chosen = "CPUExecutionProvider"
+    else:
+        chosen = "DmlExecutionProvider" if "DmlExecutionProvider" in providers else "CPUExecutionProvider"
+
+    console.print(f"[bold]Using EP:[/bold] {chosen}")
+# Pass `providers=[chosen]` when you instantiate any onnxruntime.InferenceSession
     console.print("[bold]ONNX Runtime providers:[/bold] ", providers or "N/A")
 
     # 3) Init translator + TTS

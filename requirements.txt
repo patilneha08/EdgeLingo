@@ -20,3 +20,4 @@ piper-phonemize>=1.2
 # webrtcvad==2.0.10        # ⚠️ May not have prebuilt wheel for Windows ARM64; use only if you confirm.
 # resampy>=0.4.3
 # librosa>=0.10.2.post1
+argostranslate>=1.9
