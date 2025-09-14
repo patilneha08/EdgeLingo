@@ -1,0 +1,22 @@
+# --- Core ---
+numpy>=1.26,<3
+sounddevice>=0.4.7
+soundfile>=0.12
+PyYAML>=6.0
+rich>=13.7
+
+# --- ONNX Runtime (pick best EP automatically) ---
+# On Windows, DirectML gives GPU/NPU acceleration where available.
+onnxruntime-directml==1.19.*; platform_system=="Windows"
+# Fallback for non-Windows dev or if you want CPU only:
+onnxruntime==1.19.*; platform_system!="Windows"
+
+# --- Optional but helpful ---
+# Local, offline TTS (lightweight). You’ll still need to download a voice once, then keep it with the repo.
+piper-tts>=1.2
+piper-phonemize>=1.2
+
+# If you later use VAD or resampling (comment these back in when added to your code):
+# webrtcvad==2.0.10        # ⚠️ May not have prebuilt wheel for Windows ARM64; use only if you confirm.
+# resampy>=0.4.3
+# librosa>=0.10.2.post1
