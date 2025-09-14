@@ -8,3 +8,25 @@ queue_timeout: 1.0
 
 encoder_path: "models/WhisperEncoder.onnx"
 decoder_path: "models/WhisperDecoder.onnx"
+
+audio:
+  sample_rate: 16000
+  record_seconds: 5.0
+
+lang:
+  source: "es"
+  target: "en"
+
+asr:
+  # e.g., model_path: "third_party/models/asr/whisper-small-int8.onnx"
+  # vad: false
+  # chunk_ms: 800
+
+mt:
+  # e.g., model_path: "third_party/models/mt/en-es-int8.onnx"
+  # tokenizer_path: "third_party/models/mt/spm.model"
+
+tts:
+  voice_path: "third_party/models/piper/en_US-amy-medium.onnx"
+  # Some voices come with a config JSON next to the model:
+  # config_path: "third_party/models/piper/en_US-amy-medium.onnx.json"
