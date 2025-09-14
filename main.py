@@ -1,69 +1,22 @@
-import dearpygui.dearpygui as dpg
+# main.py (Tk version) — fixes NameError on lambda using `e`
 import threading
 import time
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+
 from languagemodel import run_translation
 from text_to_speech_model import run_tts
 from playsound import playsound
 
-audio_file_path = None  # Global to store wav path
+audio_file_path: Path | None = None
 
-def run_process():
-    global audio_file_path
-    dpg.configure_item("process_btn", enabled=False)
-    dpg.set_value("output_text", "Processing... Please wait.")
-    dpg.configure_item("play_audio_btn", show=False, enabled=False)
-
-    def worker():
-        global audio_file_path
-        input_text = dpg.get_value("input_text").strip()
-        if not input_text:
-            dpg.set_value("output_text", "No input text provided.")
-            dpg.configure_item("process_btn", enabled=True)
-            return
-
-        target_lang = "E" if dpg.get_value("lang_radio") == "English" else "S"
-        do_translate = dpg.get_value("translate_radio") == "Yes"
-        do_audio = dpg.get_value("audio_radio") == "Yes"
-
-        if do_translate:
-            try:
-                translated_text = run_translation(input_text, target_lang)
-            except Exception as e:
-                dpg.set_value("output_text", f"Translation error: {e}")
-                dpg.configure_item("process_btn", enabled=True)
-                return
-        else:
-            translated_text = input_text
-
-        dpg.set_value("output_text", translated_text)
-
-        audio_file_path = None
-
-        if do_audio:
-            try:
-                wav_path = call_tts_and_locate_wav(translated_text, target_lang)
-                if wav_path:
-                    audio_file_path = wav_path
-                    dpg.configure_item("play_audio_btn", show=True, enabled=True)
-                    dpg.set_value("output_text", translated_text + "\n\nAudio file generated. Click 'Play Audio' to listen.")
-                else:
-                    dpg.set_value("output_text", translated_text + "\n\nAudio file not found after TTS.")
-                    dpg.configure_item("play_audio_btn", show=False, enabled=False)
-            except Exception as e:
-                dpg.set_value("output_text", translated_text + f"\n\nTTS error: {e}")
-                dpg.configure_item("play_audio_btn", show=False, enabled=False)
-        else:
-            dpg.configure_item("play_audio_btn", show=False, enabled=False)
-
-        dpg.configure_item("process_btn", enabled=True)
-
-    threading.Thread(target=worker, daemon=True).start()
-
-def play_audio():
-    global audio_file_path
-    if audio_file_path and audio_file_path.exists():
-        playsound(str(audio_file_path))
+def _snapshot_wavs():
+    cwd = Path.cwd()
+    paths = list(cwd.glob("*.wav"))
+    for sub in [p for p in cwd.iterdir() if p.is_dir()]:
+        paths.extend(sub.glob("*.wav"))
+    return paths
 
 def call_tts_and_locate_wav(text: str, target_lang: str) -> Path | None:
     before = _snapshot_wavs()
@@ -89,51 +42,138 @@ def call_tts_and_locate_wav(text: str, target_lang: str) -> Path | None:
             return newest_any
     return None
 
-def _snapshot_wavs():
-    cwd = Path.cwd()
-    paths = list(cwd.glob("*.wav"))
-    for sub in [p for p in cwd.iterdir() if p.is_dir()]:
-        paths.extend(sub.glob("*.wav"))
-    return paths
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("EdgeLingo (Tk)")
+        self.geometry("700x600")
 
-def main():
-    dpg.create_context()
+        self.lang_var = tk.StringVar(value="English")
+        self.translate_var = tk.StringVar(value="No")
+        self.audio_var = tk.StringVar(value="Yes")
 
-    with dpg.window(label="Translator + TTS (DearPyGui)", width=600, height=500):
-        dpg.add_text("Input Text:")
-        dpg.add_input_text(tag="input_text", multiline=True, height=100, width=-1)
+        # Input
+        ttk.Label(self, text="Input Text:").pack(anchor="w", padx=10, pady=(10, 0))
+        self.input_box = scrolledtext.ScrolledText(self, height=7, wrap=tk.WORD)
+        self.input_box.pack(fill="both", expand=False, padx=10, pady=5)
 
-        dpg.add_separator()
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=8)
 
-        dpg.add_text("Target Language:")
-        dpg.add_radio_button(("English", "Spanish"), tag="lang_radio", horizontal=True, default_value="English")
+        # Target language
+        ttk.Label(self, text="Target Language:").pack(anchor="w", padx=10)
+        lang_frame = ttk.Frame(self); lang_frame.pack(anchor="w", padx=10)
+        ttk.Radiobutton(lang_frame, text="English", variable=self.lang_var, value="English").pack(side="left")
+        ttk.Radiobutton(lang_frame, text="Spanish", variable=self.lang_var, value="Spanish").pack(side="left")
 
-        dpg.add_separator()
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=8)
 
-        dpg.add_text("Do you want to translate this text?")
-        dpg.add_radio_button(("Yes", "No"), tag="translate_radio", horizontal=True, default_value="No")
+        # Translate?
+        ttk.Label(self, text="Do you want to translate this text?").pack(anchor="w", padx=10)
+        tr_frame = ttk.Frame(self); tr_frame.pack(anchor="w", padx=10)
+        ttk.Radiobutton(tr_frame, text="Yes", variable=self.translate_var, value="Yes").pack(side="left")
+        ttk.Radiobutton(tr_frame, text="No", variable=self.translate_var, value="No").pack(side="left")
 
-        dpg.add_separator()
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=8)
 
-        dpg.add_text("Do you want an audio file?")
-        dpg.add_radio_button(("Yes", "No"), tag="audio_radio", horizontal=True, default_value="Yes")
+        # Audio?
+        ttk.Label(self, text="Do you want an audio file?").pack(anchor="w", padx=10)
+        au_frame = ttk.Frame(self); au_frame.pack(anchor="w", padx=10)
+        ttk.Radiobutton(au_frame, text="Yes", variable=self.audio_var, value="Yes").pack(side="left")
+        ttk.Radiobutton(au_frame, text="No", variable=self.audio_var, value="No").pack(side="left")
 
-        dpg.add_separator()
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=8)
 
-        dpg.add_button(label="Process", tag="process_btn", callback=run_process)
+        # Buttons
+        btn_frame = ttk.Frame(self); btn_frame.pack(anchor="w", padx=10)
+        self.process_btn = ttk.Button(btn_frame, text="Process", command=self.run_process)
+        self.process_btn.pack(side="left")
+        self.play_btn = ttk.Button(btn_frame, text="Play Audio", command=self.play_audio, state="disabled")
+        self.play_btn.pack(side="left", padx=8)
 
-        dpg.add_button(label="Play Audio", tag="play_audio_btn", callback=play_audio, show=False, enabled=False)
+        ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=8)
 
-        dpg.add_separator()
+        ttk.Label(self, text="Output Text / Status:").pack(anchor="w", padx=10)
+        self.output_box = scrolledtext.ScrolledText(self, height=12, wrap=tk.WORD, state="normal")
+        self.output_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        dpg.add_text("Output Text / Status:")
-        dpg.add_input_text(tag="output_text", multiline=True, height=150, width=-1, readonly=True)
+    def set_output(self, text: str):
+        self.output_box.config(state="normal")
+        self.output_box.delete("1.0", tk.END)
+        self.output_box.insert(tk.END, text)
+        self.output_box.config(state="normal")
 
-    dpg.create_viewport(title='EdgeLingo (DearPyGui)', width=600, height=600)
-    dpg.setup_dearpygui()
-    dpg.show_viewport()
-    dpg.start_dearpygui()
-    dpg.destroy_context()
+    def run_process(self):
+        global audio_file_path
+        audio_file_path = None
+        self.process_btn.config(state="disabled")
+        self.play_btn.config(state="disabled")
+        self.set_output("Processing... Please wait.")
+
+        def worker():
+            global audio_file_path
+            input_text = self.input_box.get("1.0", tk.END).strip()
+            if not input_text:
+                self.after(0, lambda: (
+                    self.set_output("No input text provided."),
+                    self.process_btn.config(state="normal")
+                ))
+                return
+
+            target_lang = "E" if self.lang_var.get() == "English" else "S"
+            do_translate = self.translate_var.get() == "Yes"
+            do_audio = self.audio_var.get() == "Yes"
+
+            try:
+                translated = run_translation(input_text, target_lang) if do_translate else input_text
+            except Exception as e:
+                err = str(e)  # capture now (exception var is cleared after except)
+                self.after(0, lambda err=err: (
+                    self.set_output(f"Translation error: {err}"),
+                    self.process_btn.config(state="normal")
+                ))
+                return
+
+            if do_audio:
+                try:
+                    wav_path = call_tts_and_locate_wav(translated, target_lang)
+                    if wav_path and wav_path.exists():
+                        audio_file_path = wav_path
+                        self.after(0, lambda: (
+                            self.set_output(translated + "\n\nAudio ready. Click 'Play Audio' to listen."),
+                            self.play_btn.config(state="normal"),
+                            self.process_btn.config(state="normal")
+                        ))
+                    else:
+                        self.after(0, lambda: (
+                            self.set_output(translated + "\n\nAudio file not found after TTS."),
+                            self.play_btn.config(state="disabled"),
+                            self.process_btn.config(state="normal")
+                        ))
+                except Exception as e:
+                    err = str(e)  # capture now
+                    self.after(0, lambda err=err: (
+                        self.set_output(translated + f"\n\nTTS error: {err}"),
+                        self.play_btn.config(state="disabled"),
+                        self.process_btn.config(state="normal")
+                    ))
+            else:
+                self.after(0, lambda: (
+                    self.set_output(translated),
+                    self.play_btn.config(state="disabled"),
+                    self.process_btn.config(state="normal")
+                ))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def play_audio(self):
+        global audio_file_path
+        if audio_file_path and Path(audio_file_path).exists():
+            try:
+                playsound(str(audio_file_path))
+            except Exception as e:
+                messagebox.showerror("Playback error", str(e))
+        else:
+            messagebox.showinfo("No audio", "No audio file available.")
 
 if __name__ == "__main__":
-    main()
+    App().mainloop()
